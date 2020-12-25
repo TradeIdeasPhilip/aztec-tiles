@@ -67,40 +67,41 @@ function moveTilesOnce() {
     function makeKey(row, column) {
         return row + ":" + column;
     }
-    var oldPositions = new Map();
-    function saveOld(row, column) {
-        oldPositions.set(makeKey(row, column), { row: row, column: column });
+    var possiblePositions = new Map();
+    function savePossiblePosition(row, column) {
+        possiblePositions.set(makeKey(row, column), { row: row, column: column });
     }
     var newPositions = new Map();
     var toDelete = new Set();
     var tiles = document.querySelectorAll(".tile[data-direction]");
     tiles.forEach(function (element) {
+        var _a;
         if (element instanceof HTMLDivElement) {
             var row = +element.style.getPropertyValue("--row");
             var column = +element.style.getPropertyValue("--column");
-            saveOld(row, column);
+            savePossiblePosition(row, column);
             var secondKey = void 0;
             switch (element.dataset.direction) {
                 case "top": {
-                    saveOld(row, column + 1);
+                    savePossiblePosition(row, column + 1);
                     row--;
                     secondKey = makeKey(row, column + 1);
                     break;
                 }
                 case "bottom": {
-                    saveOld(row, column + 1);
+                    savePossiblePosition(row, column + 1);
                     row++;
                     secondKey = makeKey(row, column + 1);
                     break;
                 }
                 case "left": {
-                    saveOld(row + 1, column);
+                    savePossiblePosition(row + 1, column);
                     column--;
                     secondKey = makeKey(row + 1, column);
                     break;
                 }
                 case "right": {
-                    saveOld(row + 1, column);
+                    savePossiblePosition(row + 1, column);
                     column++;
                     secondKey = makeKey(row + 1, column);
                     break;
@@ -111,7 +112,10 @@ function moveTilesOnce() {
             }
             var firstKey = makeKey(row, column);
             var conflict = newPositions.get(firstKey);
-            if (conflict !== newPositions.get(secondKey)) {
+            if ((conflict === null || conflict === void 0 ? void 0 : conflict.element) !== ((_a = newPositions.get(secondKey)) === null || _a === void 0 ? void 0 : _a.element)) {
+                // TODO We are failing here a lot.
+                // Our logic is wrong.  We are checking for two blocks landing on top of one another.
+                // We should be looking for two adjacent blocks trying to swap with each other!
                 throw new Error("wtf");
             }
             if (conflict) {
@@ -138,7 +142,14 @@ function moveTilesOnce() {
             needResizeSoon = true;
         }
     });
-    var possibleBlanks = Array.from(oldPositions);
+    Array.from(possiblePositions.values()).forEach(function (location) {
+        var row = location.row, column = location.column;
+        savePossiblePosition(row - 1, column);
+        savePossiblePosition(row + 1, column);
+        savePossiblePosition(row, column - 1);
+        savePossiblePosition(row, column + 1);
+    });
+    var possibleBlanks = Array.from(possiblePositions);
     possibleBlanks.sort(function (a, b) {
         var firstCompare = a[1].row - b[1].row;
         if (firstCompare) {
@@ -187,7 +198,7 @@ function addInitial() {
 function autoResize() {
     var offset = Math.floor(cellCount / 2);
     setCellCount(cellCount * 2);
-    document.querySelectorAll(".grid").forEach(function (tile) {
+    document.querySelectorAll(".tile").forEach(function (tile) {
         if (tile instanceof HTMLDivElement) {
             var row = +tile.style.getPropertyValue("--row");
             var column = +tile.style.getPropertyValue("--column");

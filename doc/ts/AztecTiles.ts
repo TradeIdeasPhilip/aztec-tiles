@@ -79,9 +79,9 @@ function moveTilesOnce() {
   function makeKey(row : number, column : number) : string {
     return row + ":" + column;
   }
-  const oldPositions = new Map<string, { row: number, column : number }>();
-  function saveOld(row : number, column : number) {
-    oldPositions.set(makeKey(row, column), {row, column});
+  const possiblePositions = new Map<string, { row: number, column : number }>();
+  function savePossiblePosition(row : number, column : number) {
+    possiblePositions.set(makeKey(row, column), {row, column});
   }
   const newPositions = new Map<string, { element : HTMLDivElement, row : number, column : number}>();
   const toDelete = new Set<HTMLDivElement>();
@@ -90,29 +90,29 @@ function moveTilesOnce() {
     if (element instanceof HTMLDivElement) {
       let row = +element.style.getPropertyValue("--row");
       let column = +element.style.getPropertyValue("--column");
-      saveOld(row, column);
+      savePossiblePosition(row, column);
       let secondKey : string;
       switch (element.dataset.direction) {
         case "top": {
-          saveOld(row, column + 1);
+          savePossiblePosition(row, column + 1);
           row--;
           secondKey = makeKey(row, column + 1);
           break;
         }
         case "bottom": {
-          saveOld(row, column + 1);
+          savePossiblePosition(row, column + 1);
           row++;
           secondKey = makeKey(row, column + 1);
           break;
         }
         case "left": {
-          saveOld(row + 1, column);
+          savePossiblePosition(row + 1, column);
           column--;
           secondKey = makeKey(row + 1, column);
           break;
         }
         case "right": {
-          saveOld(row + 1, column);
+          savePossiblePosition(row + 1, column);
           column++;
           secondKey = makeKey(row + 1, column);
           break;
@@ -123,7 +123,10 @@ function moveTilesOnce() {
       }
       const firstKey = makeKey(row, column);
       const conflict = newPositions.get(firstKey);
-      if (conflict !== newPositions.get(secondKey)) {
+      if (conflict?.element !== newPositions.get(secondKey)?.element) {
+        // TODO We are failing here a lot.
+        // Our logic is wrong.  We are checking for two blocks landing on top of one another.
+        // We should be looking for two adjacent blocks trying to swap with each other!
         throw new Error("wtf");
       }
       if (conflict) {
@@ -149,7 +152,14 @@ function moveTilesOnce() {
       needResizeSoon = true;
     }
   })
-  const possibleBlanks = Array.from(oldPositions);
+  Array.from(possiblePositions.values()).forEach(location => {
+    const { row, column } = location;
+    savePossiblePosition(row - 1, column);
+    savePossiblePosition(row + 1, column);
+    savePossiblePosition(row, column - 1);
+    savePossiblePosition(row, column + 1);
+  });
+  const possibleBlanks = Array.from(possiblePositions);
   possibleBlanks.sort((a, b) => {
     const firstCompare = a[1].row - b[1].row;
     if (firstCompare) {
@@ -199,7 +209,7 @@ function addInitial() {
 function autoResize() {
   const offset = Math.floor(cellCount/2);
   setCellCount(cellCount * 2);
-  document.querySelectorAll(".grid").forEach(tile => {
+  document.querySelectorAll(".tile").forEach(tile => {
     if (tile instanceof HTMLDivElement) {
       let row = +tile.style.getPropertyValue("--row");
       let column = +tile.style.getPropertyValue("--column");
