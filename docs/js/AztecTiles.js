@@ -1,13 +1,5 @@
 "use strict";
-/**
- * This is a wrapper around document.getElementById().
- * This ensures that we find the element and that it has the right type or it throws an exception.
- * Note that the return type of the function matches the requested type.
- * @param id Look for an element with this id.
- * @param ty This is the type we are expecting.  E.g. HtmlButtonElement
- */
 function getById(id, ty) {
-    //https://stackoverflow.com/a/64780056/971955
     var found = document.getElementById(id);
     if (!found) {
         throw new Error("Could not find element with id " + id + ".  Expected type:  " + ty.name);
@@ -24,23 +16,9 @@ function getById(id, ty) {
             ty.name);
     }
 }
-/**
- * The container that holds all of the tiles.
- */
 var mainDiv = getById("main", HTMLDivElement);
-/**
- * The number of cells we can draw across or down.
- * Use setCellCount() to change this.
- */
 var cellCount = 6;
-/**
- * We have hit the bounds of our drawing area.  We need more space.
- */
 var needResizeSoon = false;
-/**
- *
- * @param newValue Resize our grid.
- */
 function setCellCount(newValue) {
     if (!isFinite(newValue) || newValue < 1 || newValue != Math.floor(newValue)) {
         throw new RangeError("Expecting a positive number, got: " + newValue);
@@ -49,9 +27,6 @@ function setCellCount(newValue) {
     mainDiv.style.setProperty("--cells", newValue.toString());
     needResizeSoon = false;
 }
-/**
- * Delete all tiles.
- */
 function clearAll() {
     mainDiv.innerText = "";
 }
@@ -59,26 +34,11 @@ function createTile(direction, row, column) {
     var tile = document.createElement("div");
     tile.classList.add("tile");
     tile.classList.add(direction);
-    if (direction != "new") {
-        tile.dataset.direction = direction;
-    }
+    tile.dataset.direction = direction;
     tile.style.setProperty("--row", row.toString());
     tile.style.setProperty("--column", column.toString());
     mainDiv.appendChild(tile);
     return tile;
-}
-function createTestTiles() {
-    /*
-    createTile("top", 0, 0);
-    createTile("right", 0, 2);
-    createTile("bottom", 2, 1);
-    createTile("left", 1, 0);
-    */
-    setCellCount(8);
-    createTile("top", 2, 3);
-    createTile("left", 3, 3);
-    createTile("right", 3, 4);
-    createTile("bottom", 5, 3);
 }
 function oppositeDirection(direction) {
     switch (direction) {
@@ -93,30 +53,13 @@ function moveTilesOnce() {
     function makeKey(row, column) {
         return row + ":" + column;
     }
-    /**
-     * These are places where we expect to see a tile in at the end of this function.
-     * That includes every place that is currently in use, and every place adjacent to a place that is currently in use.
-     * This algorithm is inefficent.  We make no assumptions about the shape of the board.
-     */
     var possiblePositions = new Map();
-    /**
-     * Put the given value into possiblePositions.
-     * @param row
-     * @param column
-     */
     function savePossiblePosition(row, column) {
         possiblePositions.set(makeKey(row, column), { row: row, column: column });
     }
-    /**
-     * The position of each tile before the move.
-     * We use this to look for tiles that are crossing each other.
-     * We are only storing one copy of each tile.
-     * The key comes from the top left position of tile.
-     * row, column, and keys all the new position, after the move.
-     */
     var originalPositions = new Map();
     var toDelete = new Set();
-    var tiles = document.querySelectorAll(".tile[data-direction]");
+    var tiles = document.querySelectorAll(".tile");
     tiles.forEach(function (element) {
         if (element instanceof HTMLDivElement) {
             var row = +element.style.getPropertyValue("--row");
@@ -166,16 +109,11 @@ function moveTilesOnce() {
             }
         }
     });
-    /**
-     * Where we are planning to move each tile.
-     * We use this to say which positions are free.
-     */
     var newPositions = new Set();
     originalPositions.forEach(function (tile) {
         tile.keys.forEach(function (key) { return newPositions.add(key); });
     });
     toDelete.forEach(function (element) {
-        // TODO add animation.
         element.remove();
     });
     originalPositions.forEach(function (item) {
@@ -186,8 +124,6 @@ function moveTilesOnce() {
             needResizeSoon = true;
         }
     });
-    // We already have a list of all the cells that where in use before this function call.
-    // Now we need to add all of the immediate neighbors.
     Array.from(possiblePositions.values()).forEach(function (location) {
         var row = location.row, column = location.column;
         savePossiblePosition(row - 1, column);
@@ -195,11 +131,6 @@ function moveTilesOnce() {
         savePossiblePosition(row, column - 1);
         savePossiblePosition(row, column + 1);
     });
-    /**
-     * This is the same data as possiblePositions, but it's been sorted.
-     * You walk though these positions like English text, the first row
-     * before the second row, left to right within a row.
-     */
     var possibleBlanks = Array.from(possiblePositions);
     possibleBlanks.sort(function (a, b) {
         var firstCompare = a[1].row - b[1].row;
@@ -210,9 +141,6 @@ function moveTilesOnce() {
             return a[1].column - b[1].column;
         }
     });
-    /**
-     * This says which cells are occupied by a "new" tile.
-     */
     var blankAdded = new Set();
     possibleBlanks.forEach(function (item) {
         var key = item[0];
@@ -289,7 +217,6 @@ function onForward() {
     else {
         moveTilesOnce();
     }
-    // TODO rescale as needed.
 }
 function saveState() {
     var savedCellCount = cellCount;

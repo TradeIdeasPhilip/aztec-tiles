@@ -19,6 +19,7 @@
     "suppressExcessPropertyErrors": false,
     "suppressImplicitAnyIndexErrors": false,
     "outDir": "docs/js",
+    "removeComments": true,
   },
   "include": ["docs/ts/*.ts"]
 }

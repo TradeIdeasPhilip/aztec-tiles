@@ -71,27 +71,11 @@ function createTile(direction : Direction, row : number, column : number) {
   const tile = document.createElement("div");
   tile.classList.add("tile");
   tile.classList.add(direction);
-  if (direction != "new") {
-    tile.dataset.direction = direction;
-  }
+  tile.dataset.direction = direction;
   tile.style.setProperty("--row", row.toString());
   tile.style.setProperty("--column", column.toString());
   mainDiv.appendChild(tile);
   return tile;
-}
-
-function createTestTiles() {
-  /*
-  createTile("top", 0, 0);
-  createTile("right", 0, 2);
-  createTile("bottom", 2, 1);
-  createTile("left", 1, 0);
-  */
-  setCellCount(8);
-  createTile("top", 2, 3);
-  createTile("left", 3, 3);
-  createTile("right", 3, 4);
-  createTile("bottom", 5, 3);
 }
 
 function oppositeDirection(direction : Direction) : Direction {
@@ -104,6 +88,9 @@ function oppositeDirection(direction : Direction) : Direction {
   throw new Error("wtf");
 }
 
+/**
+ * Precondition:  There are no "new" tiles on the board.
+ */
 function moveTilesOnce() {
   function makeKey(row : number, column : number) : string {
     return row + ":" + column;
@@ -113,6 +100,8 @@ function moveTilesOnce() {
    * These are places where we expect to see a tile in at the end of this function.
    * That includes every place that is currently in use, and every place adjacent to a place that is currently in use.
    * This algorithm is inefficent.  We make no assumptions about the shape of the board.
+   * 
+   * Note:  See README.md before trying to optimize this code!
    */
   const possiblePositions = new Map<string, { row: number, column : number }>();
 
@@ -130,12 +119,22 @@ function moveTilesOnce() {
    * We use this to look for tiles that are crossing each other.
    * We are only storing one copy of each tile.
    * The key comes from the top left position of tile.
-   * row, column, and keys all the new position, after the move.
+   * row, column, and keys all describe the new position, after the move.
+   * Note:  If we delete a tile, it gets deleted from this Map, too.
    */
   const originalPositions = new Map<string, { element : HTMLDivElement, direction : Direction, keys : string[], row: number, column : number }>();
 
+  /**
+   * Remove these elements from the screen.
+   * Save these and handle them all at once.
+   * That can simplify the animation.
+   * Also, if we throw an exception, usually nothing changes.
+   * It's like all of our changes are wrapped in a transaction because we don't
+   * try to apply any of them until the end.
+   */
   const toDelete = new Set<HTMLDivElement>();
-  const tiles = document.querySelectorAll(".tile[data-direction]");
+
+  const tiles = document.querySelectorAll(".tile");
   tiles.forEach(element => {
     if (element instanceof HTMLDivElement) {
       let row = +element.style.getPropertyValue("--row");
@@ -143,7 +142,12 @@ function moveTilesOnce() {
       const direction = element.dataset.direction;
       const originalKey = makeKey(row, column);
       savePossiblePosition(row, column);
+
+      /**
+       * This key describes the cell on the right or the bottom of a tile.
+       */
       let secondKey : string;
+
       switch (direction) {
         case "top": {
           savePossiblePosition(row, column + 1);
@@ -170,16 +174,24 @@ function moveTilesOnce() {
           break;
         }
         default: {
+          // Precondition:  When you call this function, there should be no "new" tiles.
           throw new Error("wtf");
         }
       }
+
+      /**
+       * This key describes the cell on the top left of a tile.
+       */
       const firstKey = makeKey(row, column);
       const possibleConflict = originalPositions.get(firstKey);
       if (possibleConflict && (possibleConflict.direction == oppositeDirection(direction))) {
+        // If two adjacent tiles are trying to swap places with each other, we delete them both.
         toDelete.add(possibleConflict.element);
         toDelete.add(element);
         originalPositions.delete(firstKey);
       } else {
+        // Track this tile.  Either we will find a conflict in a future iteration of this loop
+        // or we will move the tile after this loop finishes.
         originalPositions.set(originalKey, { element, direction, keys: [firstKey, secondKey], row, column });
       }
     }
@@ -194,10 +206,18 @@ function moveTilesOnce() {
     tile.keys.forEach(key => newPositions.add(key));
   });
 
+  // If we said we were going to delete a tile, do it now.
   toDelete.forEach(element => {
     // TODO add animation.
     element.remove();
   });
+
+  // If we said we were going to move a tile, move it now.
+  // We could have done it sooner, but that might have confused some animations.
+  // If I was planning to move a tile, then I changed my mind and wanted to
+  // delete that tile instead, I want to do the delete animation INSTEAD of
+  // the move animation.  When we first stored the value in orgininalPositions
+  // we couldn't be sure which animation we were going to do.  Now we are sure.
   originalPositions.forEach(item => {
     const style = item.element.style;
     style.setProperty("--row", item.row.toString());
@@ -258,6 +278,9 @@ function moveTilesOnce() {
   });
 }
 
+/**
+ * Replace each "new" tile with a pair of matching tiles.
+ */
 function randomlyFill() {
   document.querySelectorAll(".new").forEach(element => {
     if (element instanceof HTMLDivElement) {
@@ -275,11 +298,17 @@ function randomlyFill() {
   });
 }
 
+/**
+ * Put a new tile in the center.
+ */
 function addInitial() {
   const center = Math.floor((cellCount - 1) / 2);
   createTile("new", center, center);
 }
 
+/**
+ * Change the scale.  Keep the tiles centered.
+ */
 function autoResize() {
   const offset = Math.floor(cellCount/2);
   setCellCount(cellCount * 2);
@@ -300,8 +329,18 @@ function onReset() {
   setCellCount(8);
 }
 
+/**
+ * Currently this is not attached to the GUI.
+ * You can call this from the JavaScript console.
+ * It was very useful for debugging.
+ * It probably should be added to the GUI.
+ */
 let undo = () => { console.log("Nothing to undo"); };
 
+/**
+ * The user only has one button to do the next step.
+ * The button does different things depending on its current state.
+ */
 function onForward() {
   undo = saveState();
   if (needResizeSoon) {
@@ -313,9 +352,12 @@ function onForward() {
   } else {
     moveTilesOnce();
   }
-  // TODO rescale as needed.
 }
 
+/**
+ * Save the current position of all tiles on the board.
+ * This returns a function.  Call that function if and when you want to restore the state.
+ */
 function saveState() {
   const savedCellCount = cellCount;
   const tiles = [] as { direction : Direction, row : number, column: number}[];
@@ -335,4 +377,5 @@ function saveState() {
   };
 }
 
+// When we first start we are in the same state as when the user hits "Reset."
 onReset();
