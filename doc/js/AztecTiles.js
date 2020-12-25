@@ -26,12 +26,14 @@ function getById(id, ty) {
 }
 var mainDiv = getById("main", HTMLDivElement);
 var cellCount = 6;
+var needResizeSoon = false;
 function setCellCount(newValue) {
     if (!isFinite(newValue) || newValue < 1 || newValue != Math.floor(newValue)) {
         throw new RangeError("Expecting a positive number, got: " + newValue);
     }
     cellCount = newValue;
     mainDiv.style.setProperty("--cells", newValue.toString());
+    needResizeSoon = false;
 }
 function clearAll() {
     mainDiv.innerText = "";
@@ -132,6 +134,9 @@ function moveTilesOnce() {
         var style = item.element.style;
         style.setProperty("--row", item.row.toString());
         style.setProperty("--column", item.column.toString());
+        if ((item.row <= 0) || (item.column <= 0)) {
+            needResizeSoon = true;
+        }
     });
     var possibleBlanks = Array.from(oldPositions);
     possibleBlanks.sort(function (a, b) {
@@ -158,8 +163,59 @@ function moveTilesOnce() {
         }
     });
 }
-function initOnce() {
-    //generationInput.addEventListener("change", () => showFromGui());
+function randomlyFill() {
+    document.querySelectorAll(".new").forEach(function (element) {
+        if (element instanceof HTMLDivElement) {
+            var row = +element.style.getPropertyValue("--row");
+            var column = +element.style.getPropertyValue("--column");
+            element.remove();
+            if (Math.random() < 0.5) {
+                createTile("top", row, column);
+                createTile("bottom", row + 1, column);
+            }
+            else {
+                createTile("left", row, column);
+                createTile("right", row, column + 1);
+            }
+        }
+    });
 }
-initOnce();
+function addInitial() {
+    var center = Math.floor((cellCount - 1) / 2);
+    createTile("new", center, center);
+}
+function autoResize() {
+    var offset = Math.floor(cellCount / 2);
+    setCellCount(cellCount * 2);
+    document.querySelectorAll(".grid").forEach(function (tile) {
+        if (tile instanceof HTMLDivElement) {
+            var row = +tile.style.getPropertyValue("--row");
+            var column = +tile.style.getPropertyValue("--column");
+            row += offset;
+            column += offset;
+            tile.style.setProperty("--row", row.toString());
+            tile.style.setProperty("--column", column.toString());
+        }
+    });
+}
+function onReset() {
+    clearAll();
+    setCellCount(8);
+}
+function onForward() {
+    if (needResizeSoon) {
+        autoResize();
+    }
+    else if (mainDiv.childElementCount == 0) {
+        addInitial();
+    }
+    else if (document.querySelector(".new")) {
+        randomlyFill();
+    }
+    else {
+        moveTilesOnce();
+    }
+    // TODO rescale as needed.
+}
+onReset();
 //# sourceMappingURL=AztecTiles.js.map
