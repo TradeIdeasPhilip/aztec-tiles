@@ -384,6 +384,17 @@ function onForward() {
  * This returns a function.  Call that function if and when you want to restore the state.
  */
 function saveState() {
+  // TODO / BUG
+  // Steps to repeat
+  // Hit forward until the screen resizes.
+  // Hit undo once.
+  // Hit forward again.
+  //  It should have resized but it did't.
+  //  It will skip to the next step and fill in the "new" tiles.
+  //  If you're not paying attention you won't notice the problem yet.
+  // Hit forward again.
+  //  Now some tiles are moved off the edge of the screen.
+  //  Now it's obvious that there's a problem!
   const savedCellCount = cellCount;
   const tiles = [] as { direction : Direction, row : number, column: number}[];
    document.querySelectorAll(".tile").forEach(element => {
