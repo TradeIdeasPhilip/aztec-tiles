@@ -18,7 +18,7 @@
     "strictPropertyInitialization": true,
     "suppressExcessPropertyErrors": false,
     "suppressImplicitAnyIndexErrors": false,
-    "outDir": "doc/js",
+    "outDir": "docs/js",
   },
-  "include": ["doc/ts/*.ts"]
+  "include": ["docs/ts/*.ts"]
 }
