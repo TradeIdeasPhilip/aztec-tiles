@@ -329,20 +329,45 @@ function onReset() {
   setCellCount(8);
 }
 
+/** A stack of undo states. */
+const undo : { () : void }[] = [];
+
 /**
- * Currently this is not attached to the GUI.
- * You can call this from the JavaScript console.
- * It was very useful for debugging.
- * It probably should be added to the GUI.
+ * We automatically enable and disable this based on the state of the undo list.
  */
-let undo = () => { console.log("Nothing to undo"); };
+const undoButton = getById("undo", HTMLButtonElement);
+
+/**
+ * Grab the current state and push it onto the stack.
+ */
+function pushUndoItem() {
+  if (undo.length == 5) {
+    // Don't let the list get too long.  That would be a memory leak.
+    undo.shift();
+  }
+  undo.push(saveState());
+  undoButton.disabled = false;
+}
+
+/**
+ * Call this to pop the most recently pushed item and restore it.
+ * It is an error to call this if there are no items on the stack.
+ */
+function popUndoItem() {
+  const toRestore = undo.pop();
+  undoButton.disabled = undo.length == 0;
+  if (!toRestore) {
+    throw new Error("wtf");
+  }
+  toRestore();
+}
 
 /**
  * The user only has one button to do the next step.
  * The button does different things depending on its current state.
  */
 function onForward() {
-  undo = saveState();
+  pushUndoItem();
   if (needResizeSoon) {
     autoResize();
   } else if (mainDiv.childElementCount == 0) {
@@ -375,6 +400,10 @@ function saveState() {
     setCellCount(savedCellCount);
     tiles.forEach(tile => createTile(tile.direction, tile.row, tile.column));
   };
+}
+
+function onUndo() {
+  popUndoItem();
 }
 
 // When we first start we are in the same state as when the user hits "Reset."

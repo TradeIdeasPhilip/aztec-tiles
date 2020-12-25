@@ -202,9 +202,25 @@ function onReset() {
     clearAll();
     setCellCount(8);
 }
-var undo = function () { console.log("Nothing to undo"); };
+var undo = [];
+var undoButton = getById("undo", HTMLButtonElement);
+function pushUndoItem() {
+    if (undo.length == 5) {
+        undo.shift();
+    }
+    undo.push(saveState());
+    undoButton.disabled = false;
+}
+function popUndoItem() {
+    var toRestore = undo.pop();
+    undoButton.disabled = undo.length == 0;
+    if (!toRestore) {
+        throw new Error("wtf");
+    }
+    toRestore();
+}
 function onForward() {
-    undo = saveState();
+    pushUndoItem();
     if (needResizeSoon) {
         autoResize();
     }
@@ -236,6 +252,9 @@ function saveState() {
         setCellCount(savedCellCount);
         tiles.forEach(function (tile) { return createTile(tile.direction, tile.row, tile.column); });
     };
+}
+function onUndo() {
+    popUndoItem();
 }
 onReset();
 //# sourceMappingURL=AztecTiles.js.map
