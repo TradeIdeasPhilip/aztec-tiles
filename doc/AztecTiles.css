@@ -1,0 +1,49 @@
+body {
+  display: flex;
+  align-items: center; 
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+}
+#main {
+  position: relative;
+  top: 0;
+  left: 0;
+  height: 100vmin;
+  width: 100vmin;
+  background-color: bisque;
+  --item-size: calc(100%/var(--cells));
+}
+.tile {
+  border: calc(15vmin/var(--cells)) solid;
+  box-sizing: border-box;
+  top: calc(var(--row)*var(--item-size));
+  left: calc(var(--column)*var(--item-size));
+  position: absolute;
+  border-color: rgb(255 255 255 / 30%) rgb(0 0 0 / 25%) rgb(0 0 0 / 35%) rgb(255 255 255 / 25%);
+}
+.top {
+  background-color: blue;
+  width: calc(var(--item-size)*2);
+  height: var(--item-size);
+}
+.bottom {
+  background-color: green;
+  width: calc(var(--item-size)*2);
+  height: var(--item-size);
+}
+.left {
+  background-color: orange;
+  width: var(--item-size);
+  height: calc(var(--item-size)*2);
+}
+.right {
+  background-color: red;
+  width: var(--item-size);
+  height: calc(var(--item-size)*2);
+}
+.new {
+  background: #808080;
+  width: calc(var(--item-size)*2);
+  height: calc(var(--item-size)*2);
+}
