@@ -33,6 +33,7 @@ body {
   position: absolute;
   border-color: rgb(255 255 255 / 30%) rgb(0 0 0 / 25%) rgb(0 0 0 / 35%) rgb(255 255 255 / 25%);
   transition: top 2s, left 2s;
+  transition-timing-function: cubic-bezier(0.065, 0.605, 0.895, 0.240);
 }
 .top {
   background-color: blue;
