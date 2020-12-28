@@ -1,27 +1,3 @@
-// Bug:
-// Mostly it's working but in certain cases some of the tiles go crazy
-//   Some horizontal and vertial tiles are half overlapping each other.
-//   And we can't fill in the "new" tiles correctly.
-//   Lots of empty space.
-// Steps to repeat:
-//   Hit refresh or reset.
-//   Hit next until there is a resize.
-//   If the cellCount was less than 8 that resize won't count.  Keep going until the next resize.
-//   The screen will look fine after the resize, but something's wrong under the hood.
-//   Hit next again.
-//   The "new" cells will be replaced by pairs of cells.
-//   The screen will still look fine.
-//   Hit next one last time.
-//   The cells will move out by one, creating some "new" cells.
-//   At this point the problem will be obvious.
-// I tried changing the initial cell count to something small so I could see the problem on a smaller board.
-//   That never worked.
-//   I tried several times, with different patterns.
-// I tried the undo button.
-//   I could not reproduce the bug after hitting undo then next.
-//   Everything looked fine after that.
-// TODO fit it!
-
 /**
  * This is a wrapper around document.getElementById().
  * This ensures that we find the element and that it has the right type or it throws an exception.
@@ -168,6 +144,7 @@ class Tile {
   addOffset(offset : number) {
     this.row += offset;
     this.column += offset;
+    this.keysCache = undefined;
     this.setDivPosition();
   }
   remove() {

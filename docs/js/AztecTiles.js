@@ -75,6 +75,7 @@ var Tile = (function () {
     Tile.prototype.addOffset = function (offset) {
         this.row += offset;
         this.column += offset;
+        this.keysCache = undefined;
         this.setDivPosition();
     };
     Tile.prototype.remove = function () {
