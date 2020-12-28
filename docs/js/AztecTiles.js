@@ -25,14 +25,14 @@ function setCellCount(newValue) {
     cellCount = newValue;
     mainDiv.style.setProperty("--cells", newValue.toString());
 }
-var panelInfo = {
-    new: { dLeft: 0, dTop: 0, div: undefined, height: 2, width: 2, get compareBefore() { throw new Error("wtf"); }, get orientation() { throw new Error("wtf"); } },
-    top: { dLeft: 0, dTop: -1, div: undefined, opposite: "bottom", height: 1, width: 2, compareBefore: true, orientation: "horizontal" },
-    bottom: { dLeft: 0, dTop: 1, div: undefined, opposite: "top", height: 1, width: 2, compareBefore: false, orientation: "horizontal" },
-    left: { dLeft: -1, dTop: 0, div: undefined, opposite: "right", height: 2, width: 1, compareBefore: true, orientation: "vertical" },
-    right: { dLeft: 1, dTop: 0, div: undefined, opposite: "left", height: 2, width: 1, compareBefore: false, orientation: "vertical" },
+var allPanelInfo = {
+    new: { direction: "new", dLeft: 0, dTop: 0, div: undefined, height: 2, width: 2, get compareBefore() { throw new Error("wtf"); }, get orientation() { throw new Error("wtf"); } },
+    top: { direction: "top", dLeft: 0, dTop: -1, div: undefined, opposite: "bottom", height: 1, width: 2, compareBefore: true, orientation: "horizontal" },
+    bottom: { direction: "bottom", dLeft: 0, dTop: 1, div: undefined, opposite: "top", height: 1, width: 2, compareBefore: false, orientation: "horizontal" },
+    left: { direction: "left", dLeft: -1, dTop: 0, div: undefined, opposite: "right", height: 2, width: 1, compareBefore: true, orientation: "vertical" },
+    right: { direction: "right", dLeft: 1, dTop: 0, div: undefined, opposite: "left", height: 2, width: 1, compareBefore: false, orientation: "vertical" },
 };
-var directions = Object.keys(panelInfo);
+var directions = Object.keys(allPanelInfo);
 var generation = 0;
 function setGeneration(newValue) {
     mainDiv.style.setProperty("--generation", newValue.toString());
@@ -45,7 +45,7 @@ function clearAll() {
     directions.forEach(function (direction) {
         var div = document.createElement("div");
         div.className = "animation-panel";
-        var info = panelInfo[direction];
+        var info = allPanelInfo[direction];
         div.style.setProperty("--dtop", info.dTop.toString());
         div.style.setProperty("--dleft", info.dLeft.toString());
         info.div = div;
@@ -53,19 +53,22 @@ function clearAll() {
     });
 }
 var Tile = (function () {
-    function Tile(direction, row, column) {
-        this.direction = direction;
+    function Tile(panelInfo, row, column) {
+        this.panelInfo = panelInfo;
         this.row = row;
         this.column = column;
         this.div = document.createElement("div");
         this.div.classList.add("tile");
-        this.div.classList.add(direction);
+        this.div.classList.add(panelInfo.direction);
         this.setDivPosition();
-        panelInfo[this.direction].div.appendChild(this.div);
+        panelInfo.div.appendChild(this.div);
         Tile.all.add(this);
     }
+    Tile.create = function (direction, row, column) {
+        return new Tile(allPanelInfo[direction], row, column);
+    };
     Tile.prototype.setDivPosition = function () {
-        var info = panelInfo[this.direction];
+        var info = this.panelInfo;
         this.div.style.setProperty("--row", (this.row - generation * info.dTop).toString());
         this.div.style.setProperty("--column", (this.column - generation * info.dLeft).toString());
     };
@@ -86,7 +89,7 @@ var Tile = (function () {
     Object.defineProperty(Tile.prototype, "keys", {
         get: function () {
             if (!this.keysCache) {
-                var info = panelInfo[this.direction];
+                var info = this.panelInfo;
                 this.keysCache = [];
                 for (var r = 0; r < info.height; r++) {
                     for (var c = 0; c < info.width; c++) {
@@ -100,7 +103,7 @@ var Tile = (function () {
         configurable: true
     });
     Tile.prototype.moveOnce = function () {
-        var info = panelInfo[this.direction];
+        var info = this.panelInfo;
         this.row += info.dTop;
         this.column += info.dLeft;
         this.keysCache = undefined;
@@ -113,7 +116,7 @@ function moveTilesOnce() {
     var crossingPositions = { horizontal: new Map(), vertical: new Map() };
     function checkForCross(tile) {
         var key = tile.keys[0];
-        var orientation = panelInfo[tile.direction].orientation;
+        var orientation = tile.panelInfo.orientation;
         var other = crossingPositions[orientation].get(key);
         if (other) {
             tile.remove();
@@ -124,7 +127,7 @@ function moveTilesOnce() {
         return false;
     }
     Tile.all.forEach(function (tile) {
-        var compareBefore = panelInfo[tile.direction].compareBefore;
+        var compareBefore = tile.panelInfo.compareBefore;
         if (compareBefore) {
             if (!checkForCross(tile)) {
                 tile.moveOnce();
@@ -156,7 +159,7 @@ function moveTilesOnce() {
             }
         }
         if (!conflict) {
-            new Tile("new", row, column);
+            Tile.create("new", row, column);
             keys.forEach(function (key) { return occupied.add(key); });
         }
     }
@@ -181,17 +184,17 @@ function moveTilesOnce() {
 }
 function randomlyFill() {
     Tile.all.forEach(function (tile) {
-        if (tile.direction == "new") {
+        if (tile.panelInfo.direction == "new") {
             var row = tile.getRow();
             var column = tile.getColumn();
             tile.remove();
             if (Math.random() < 0.5) {
-                new Tile("top", row, column);
-                new Tile("bottom", row + 1, column);
+                Tile.create("top", row, column);
+                Tile.create("bottom", row + 1, column);
             }
             else {
-                new Tile("left", row, column);
-                new Tile("right", row, column + 1);
+                Tile.create("left", row, column);
+                Tile.create("right", row, column + 1);
             }
         }
     });
@@ -237,12 +240,12 @@ function onForward() {
 function saveState() {
     var savedCellCount = cellCount;
     var savedGeneration = generation;
-    var tiles = Array.from(Tile.all).map(function (tile) { return ({ direction: tile.direction, row: tile.getRow(), column: tile.getColumn() }); });
+    var tiles = Array.from(Tile.all).map(function (tile) { return ({ panelInfo: tile.panelInfo, row: tile.getRow(), column: tile.getColumn() }); });
     return function () {
         clearAll();
         setCellCount(savedCellCount);
         setGeneration(savedGeneration);
-        tiles.forEach(function (tile) { return new Tile(tile.direction, tile.row, tile.column); });
+        tiles.forEach(function (tile) { return new Tile(tile.panelInfo, tile.row, tile.column); });
     };
 }
 function onUndo() {

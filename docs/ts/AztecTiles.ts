@@ -95,18 +95,19 @@ type PanelInfo = {
   height : 1 | 2,
   width : 1 | 2,
   compareBefore : boolean;
-  orientation : "horizontal" | "vertical";
+  orientation : "horizontal" | "vertical",
+  direction : Direction,
 }
 
-const panelInfo : Record<Direction, PanelInfo> = {
-  new: {dLeft : 0, dTop : 0, div : undefined!, height : 2, width : 2, get compareBefore() : boolean { throw new Error("wtf")}, get orientation() : any { throw new Error("wtf")}},
-  top: {dLeft : 0, dTop : -1, div : undefined!, opposite : "bottom", height : 1, width : 2, compareBefore: true, orientation: "horizontal"},
-  bottom: {dLeft : 0, dTop : 1, div : undefined!, opposite : "top", height : 1, width : 2, compareBefore: false, orientation: "horizontal"},
-  left: {dLeft : -1, dTop : 0, div : undefined!, opposite : "right", height : 2, width : 1, compareBefore: true, orientation : "vertical"},
-  right: {dLeft : 1, dTop : 0, div : undefined!, opposite: "left", height : 2, width : 1, compareBefore: false, orientation : "vertical"},
+const allPanelInfo : Record<Direction, PanelInfo> = {
+  new: {direction : "new", dLeft : 0, dTop : 0, div : undefined!, height : 2, width : 2, get compareBefore() : boolean { throw new Error("wtf")}, get orientation() : any { throw new Error("wtf")}},
+  top: {direction : "top", dLeft : 0, dTop : -1, div : undefined!, opposite : "bottom", height : 1, width : 2, compareBefore: true, orientation: "horizontal"},
+  bottom: {direction : "bottom", dLeft : 0, dTop : 1, div : undefined!, opposite : "top", height : 1, width : 2, compareBefore: false, orientation: "horizontal"},
+  left: {direction : "left", dLeft : -1, dTop : 0, div : undefined!, opposite : "right", height : 2, width : 1, compareBefore: true, orientation : "vertical"},
+  right: {direction : "right", dLeft : 1, dTop : 0, div : undefined!, opposite: "left", height : 2, width : 1, compareBefore: false, orientation : "vertical"},
 }
 
-const directions = Object.keys(panelInfo) as Direction[];
+const directions = Object.keys(allPanelInfo) as Direction[];
 
 /**
  * The height of the diamond is generation * 2.
@@ -128,7 +129,7 @@ function clearAll() {
   directions.forEach(direction => {
     const div = document.createElement("div");
     div.className = "animation-panel";
-    const info = panelInfo[direction];
+    const info = allPanelInfo[direction];
     div.style.setProperty("--dtop", info.dTop.toString());
     div.style.setProperty("--dleft", info.dLeft.toString());
     info.div = div;
@@ -141,13 +142,16 @@ type Direction = "top" | "bottom" | "left" | "right" | "new";
 
 class Tile {
   readonly div : HTMLDivElement;
-  constructor(public readonly direction : Direction, private row : number, private column : number) {
+  constructor(public readonly panelInfo : PanelInfo, private row : number, private column : number) {
     this.div = document.createElement("div");
     this.div.classList.add("tile");
-    this.div.classList.add(direction);
+    this.div.classList.add(panelInfo.direction);
     this.setDivPosition();
-    panelInfo[this.direction].div.appendChild(this.div);
+    panelInfo.div.appendChild(this.div);
     Tile.all.add(this);
+  }
+  static create(direction : Direction, row : number, column : number) : Tile {
+    return new Tile(allPanelInfo[direction], row, column);
   }
   private setDivPosition() {
     // This is explicitly NOT required when calling moveOnce().
@@ -157,7 +161,7 @@ class Tile {
     // This is a huge performance boost because the regular movements are all animated.
     // The animation logic fires many times a second.
     // Now the animation only has to track 4 containers, rather than all of the individual tiles.
-    const info = panelInfo[this.direction];
+    const info = this.panelInfo;
     this.div.style.setProperty("--row", (this.row - generation * info.dTop).toString());
     this.div.style.setProperty("--column", (this.column - generation * info.dLeft).toString());
   }
@@ -180,7 +184,7 @@ class Tile {
   private keysCache? : string[];
   public get keys() : string[] {
     if (!this.keysCache) {
-      const info = panelInfo[this.direction];
+      const info = this.panelInfo;
       this.keysCache = [];
       for (let r = 0; r < info.height; r++) {
         for (let c = 0; c < info.width; c++) {
@@ -192,7 +196,7 @@ class Tile {
   }
 
   moveOnce() {
-    const info = panelInfo[this.direction];
+    const info = this.panelInfo;
     this.row += info.dTop;
     this.column += info.dLeft;
     this.keysCache = undefined;
@@ -214,7 +218,7 @@ function moveTilesOnce() {
   const crossingPositions = { horizontal: new Map<string, Tile>(), vertical: new Map<string, Tile>() };
   function checkForCross(tile : Tile) {
     const key = tile.keys[0];
-    const orientation =  panelInfo[tile.direction].orientation;
+    const orientation =  tile.panelInfo.orientation;
     const other = crossingPositions[orientation].get(key);
     if (other) {
       tile.remove();
@@ -227,7 +231,7 @@ function moveTilesOnce() {
 
   // Move the tiles and delete any that cross each other.
   Tile.all.forEach(tile => {
-    const compareBefore = panelInfo[tile.direction].compareBefore;
+    const compareBefore = tile.panelInfo.compareBefore;
     if (compareBefore) {
       if (!checkForCross(tile)) {
         tile.moveOnce();
@@ -272,7 +276,7 @@ function moveTilesOnce() {
       }
     }
     if (!conflict) {
-      new Tile("new", row, column);
+      Tile.create("new", row, column);
       keys.forEach(key => occupied.add(key));
     }
   }
@@ -301,16 +305,16 @@ function moveTilesOnce() {
  */
 function randomlyFill() {
   Tile.all.forEach(tile => {
-    if (tile.direction == "new") {
+    if (tile.panelInfo.direction == "new") {
       const row = tile.getRow();
       const column = tile.getColumn();
       tile.remove();
       if (Math.random() < 0.5) {
-        new Tile("top", row, column);
-        new Tile("bottom", row + 1, column);
+        Tile.create("top", row, column);
+        Tile.create("bottom", row + 1, column);
       } else {
-        new Tile("left", row, column);
-        new Tile("right", row, column + 1);
+        Tile.create("left", row, column);
+        Tile.create("right", row, column + 1);
       }
     }
   });
@@ -385,12 +389,12 @@ function onForward() {
 function saveState() {
   const savedCellCount = cellCount;
   const savedGeneration = generation;
-  const tiles =  Array.from(Tile.all).map(tile => ({direction : tile.direction, row: tile.getRow(), column: tile.getColumn()}));
+  const tiles =  Array.from(Tile.all).map(tile => ({panelInfo : tile.panelInfo, row: tile.getRow(), column: tile.getColumn()}));
   return () => {
     clearAll();
     setCellCount(savedCellCount);
     setGeneration(savedGeneration);
-    tiles.forEach(tile => new Tile(tile.direction, tile.row, tile.column));
+    tiles.forEach(tile => new Tile(tile.panelInfo, tile.row, tile.column));
   };
 }
 
