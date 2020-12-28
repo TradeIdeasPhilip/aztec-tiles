@@ -25,6 +25,14 @@ body {
   width: 100vmin;
   --item-size: calc(100%/var(--cells));
 }
+.animation-panel {
+  position: absolute;
+  top: calc(var(--generation) * var(--dtop) * var(--item-size));
+  left: calc(var(--generation) * var(--dleft) * var(--item-size));
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
 .tile {
   border: calc(15vmin/var(--cells)) solid;
   box-sizing: border-box;
