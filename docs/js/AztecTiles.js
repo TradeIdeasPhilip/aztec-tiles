@@ -18,185 +18,188 @@ function getById(id, ty) {
 }
 var mainDiv = getById("main", HTMLDivElement);
 var cellCount = 6;
-var needResizeSoon = false;
 function setCellCount(newValue) {
     if (!isFinite(newValue) || newValue < 1 || newValue != Math.floor(newValue)) {
         throw new RangeError("Expecting a positive number, got: " + newValue);
     }
     cellCount = newValue;
     mainDiv.style.setProperty("--cells", newValue.toString());
-    needResizeSoon = false;
+}
+var panelInfo = {
+    new: { dLeft: 0, dTop: 0, div: undefined, height: 2, width: 2, get compareBefore() { throw new Error("wtf"); }, get orientation() { throw new Error("wtf"); } },
+    top: { dLeft: 0, dTop: -1, div: undefined, opposite: "bottom", height: 1, width: 2, compareBefore: true, orientation: "horizontal" },
+    bottom: { dLeft: 0, dTop: 1, div: undefined, opposite: "top", height: 1, width: 2, compareBefore: false, orientation: "horizontal" },
+    left: { dLeft: -1, dTop: 0, div: undefined, opposite: "right", height: 2, width: 1, compareBefore: true, orientation: "vertical" },
+    right: { dLeft: 1, dTop: 0, div: undefined, opposite: "left", height: 2, width: 1, compareBefore: false, orientation: "vertical" },
+};
+var directions = Object.keys(panelInfo);
+var generation = 0;
+function setGeneration(newValue) {
+    mainDiv.style.setProperty("--generation", newValue.toString());
+    generation = newValue;
 }
 function clearAll() {
     mainDiv.innerText = "";
+    Tile.all.clear();
+    setGeneration(0);
+    directions.forEach(function (direction) {
+        var div = document.createElement("div");
+        div.className = "animation-panel";
+        var info = panelInfo[direction];
+        div.style.setProperty("--dtop", info.dTop.toString());
+        div.style.setProperty("--dleft", info.dLeft.toString());
+        info.div = div;
+        mainDiv.appendChild(div);
+    });
 }
-function createTile(direction, row, column) {
-    var tile = document.createElement("div");
-    tile.classList.add("tile");
-    tile.classList.add(direction);
-    tile.dataset.direction = direction;
-    tile.style.setProperty("--row", row.toString());
-    tile.style.setProperty("--column", column.toString());
-    mainDiv.appendChild(tile);
-    return tile;
-}
-function oppositeDirection(direction) {
-    switch (direction) {
-        case "top": return "bottom";
-        case "bottom": return "top";
-        case "left": return "right";
-        case "right": return "left";
+var Tile = (function () {
+    function Tile(direction, row, column) {
+        this.direction = direction;
+        this.row = row;
+        this.column = column;
+        this.div = document.createElement("div");
+        this.div.classList.add("tile");
+        this.div.classList.add(direction);
+        this.setDivPosition();
+        panelInfo[this.direction].div.appendChild(this.div);
+        Tile.all.add(this);
     }
-    throw new Error("wtf");
-}
-function moveTilesOnce() {
-    function makeKey(row, column) {
+    Tile.prototype.setDivPosition = function () {
+        var info = panelInfo[this.direction];
+        this.div.style.setProperty("--row", (this.row - generation * info.dTop).toString());
+        this.div.style.setProperty("--column", (this.column - generation * info.dLeft).toString());
+    };
+    Tile.prototype.addOffset = function (offset) {
+        this.row += offset;
+        this.column += offset;
+        this.setDivPosition();
+    };
+    Tile.prototype.remove = function () {
+        Tile.all.delete(this);
+        this.div.remove();
+    };
+    Tile.prototype.getRow = function () { return this.row; };
+    Tile.prototype.getColumn = function () { return this.column; };
+    Tile.makeKey = function (row, column) {
         return row + ":" + column;
-    }
-    var possiblePositions = new Map();
-    function savePossiblePosition(row, column) {
-        possiblePositions.set(makeKey(row, column), { row: row, column: column });
-    }
-    var originalPositions = new Map();
-    var toDelete = new Set();
-    var tiles = document.querySelectorAll(".tile");
-    tiles.forEach(function (element) {
-        if (element instanceof HTMLDivElement) {
-            var row = +element.style.getPropertyValue("--row");
-            var column = +element.style.getPropertyValue("--column");
-            var direction = element.dataset.direction;
-            var originalKey = makeKey(row, column);
-            savePossiblePosition(row, column);
-            var secondKey = void 0;
-            switch (direction) {
-                case "top": {
-                    savePossiblePosition(row, column + 1);
-                    row--;
-                    secondKey = makeKey(row, column + 1);
-                    break;
-                }
-                case "bottom": {
-                    savePossiblePosition(row, column + 1);
-                    row++;
-                    secondKey = makeKey(row, column + 1);
-                    break;
-                }
-                case "left": {
-                    savePossiblePosition(row + 1, column);
-                    column--;
-                    secondKey = makeKey(row + 1, column);
-                    break;
-                }
-                case "right": {
-                    savePossiblePosition(row + 1, column);
-                    column++;
-                    secondKey = makeKey(row + 1, column);
-                    break;
-                }
-                default: {
-                    throw new Error("wtf");
+    };
+    Object.defineProperty(Tile.prototype, "keys", {
+        get: function () {
+            if (!this.keysCache) {
+                var info = panelInfo[this.direction];
+                this.keysCache = [];
+                for (var r = 0; r < info.height; r++) {
+                    for (var c = 0; c < info.width; c++) {
+                        this.keysCache.push(Tile.makeKey(this.row + r, this.column + c));
+                    }
                 }
             }
-            var firstKey = makeKey(row, column);
-            var possibleConflict = originalPositions.get(firstKey);
-            if (possibleConflict && (possibleConflict.direction == oppositeDirection(direction))) {
-                toDelete.add(possibleConflict.element);
-                toDelete.add(element);
-                originalPositions.delete(firstKey);
-            }
-            else {
-                originalPositions.set(originalKey, { element: element, direction: direction, keys: [firstKey, secondKey], row: row, column: column });
-            }
+            return this.keysCache;
+        },
+        enumerable: false,
+        configurable: true
+    });
+    Tile.prototype.moveOnce = function () {
+        var info = panelInfo[this.direction];
+        this.row += info.dTop;
+        this.column += info.dLeft;
+        this.keysCache = undefined;
+    };
+    Tile.all = new Set();
+    return Tile;
+}());
+function moveTilesOnce() {
+    setGeneration(generation + 1);
+    var crossingPositions = { horizontal: new Map(), vertical: new Map() };
+    function checkForCross(tile) {
+        var key = tile.keys[0];
+        var orientation = panelInfo[tile.direction].orientation;
+        var other = crossingPositions[orientation].get(key);
+        if (other) {
+            tile.remove();
+            other.remove();
+            return true;
         }
-    });
-    var newPositions = new Set();
-    originalPositions.forEach(function (tile) {
-        tile.keys.forEach(function (key) { return newPositions.add(key); });
-    });
-    toDelete.forEach(function (element) {
-        element.remove();
-    });
-    originalPositions.forEach(function (item) {
-        var style = item.element.style;
-        style.setProperty("--row", item.row.toString());
-        style.setProperty("--column", item.column.toString());
-        if ((item.row <= 0) || (item.column <= 0)) {
-            needResizeSoon = true;
-        }
-    });
-    Array.from(possiblePositions.values()).forEach(function (location) {
-        var row = location.row, column = location.column;
-        savePossiblePosition(row - 1, column);
-        savePossiblePosition(row + 1, column);
-        savePossiblePosition(row, column - 1);
-        savePossiblePosition(row, column + 1);
-    });
-    var possibleBlanks = Array.from(possiblePositions);
-    possibleBlanks.sort(function (a, b) {
-        var firstCompare = a[1].row - b[1].row;
-        if (firstCompare) {
-            return firstCompare;
+        crossingPositions[orientation].set(key, tile);
+        return false;
+    }
+    Tile.all.forEach(function (tile) {
+        var compareBefore = panelInfo[tile.direction].compareBefore;
+        if (compareBefore) {
+            if (!checkForCross(tile)) {
+                tile.moveOnce();
+            }
         }
         else {
-            return a[1].column - b[1].column;
+            tile.moveOnce();
+            checkForCross(tile);
         }
     });
-    var blankAdded = new Set();
-    possibleBlanks.forEach(function (item) {
-        var key = item[0];
-        if (!(newPositions.has(key) || blankAdded.has(key))) {
-            var row = item[1].row;
-            var column_1 = item[1].column;
-            createTile("new", row, column_1);
+    var occupied = new Set();
+    Tile.all.forEach(function (tile) {
+        tile.keys.forEach(function (key) { return occupied.add(key); });
+    });
+    var offset = Math.floor(cellCount / 2) - generation;
+    function tryNewTile(row, column) {
+        var keys = [];
+        [column, column + 1].forEach(function (c) {
             [row, row + 1].forEach(function (r) {
-                [column_1, column_1 + 1].forEach(function (c) {
-                    var k = makeKey(r, c);
-                    if (blankAdded.has(k)) {
-                        throw new Error("wtf");
-                    }
-                    if (newPositions.has(k)) {
-                        throw new Error("wtf");
-                    }
-                    blankAdded.add(k);
-                });
+                keys.push(Tile.makeKey(r, c));
             });
+        });
+        var conflict = false;
+        for (var _i = 0, keys_1 = keys; _i < keys_1.length; _i++) {
+            var key = keys_1[_i];
+            if (occupied.has(key)) {
+                conflict = true;
+                break;
+            }
         }
-    });
+        if (!conflict) {
+            new Tile("new", row, column);
+            keys.forEach(function (key) { return occupied.add(key); });
+        }
+    }
+    for (var r = 0; r < generation; r++) {
+        var row = r + offset;
+        var leftOffset = offset + generation - r - 1;
+        var width = r * 2 + 1;
+        for (var c = 0; c < width; c++) {
+            var column = c + leftOffset;
+            tryNewTile(row, column);
+        }
+    }
+    for (var r = 1; r < generation; r++) {
+        var row = offset + generation + r - 1;
+        var leftOffset = offset + r;
+        var width = (generation - r) * 2 - 1;
+        for (var c = 0; c < width; c++) {
+            var column = c + leftOffset;
+            tryNewTile(row, column);
+        }
+    }
 }
 function randomlyFill() {
-    document.querySelectorAll(".new").forEach(function (element) {
-        if (element instanceof HTMLDivElement) {
-            var row = +element.style.getPropertyValue("--row");
-            var column = +element.style.getPropertyValue("--column");
-            element.remove();
+    Tile.all.forEach(function (tile) {
+        if (tile.direction == "new") {
+            var row = tile.getRow();
+            var column = tile.getColumn();
+            tile.remove();
             if (Math.random() < 0.5) {
-                createTile("top", row, column);
-                createTile("bottom", row + 1, column);
+                new Tile("top", row, column);
+                new Tile("bottom", row + 1, column);
             }
             else {
-                createTile("left", row, column);
-                createTile("right", row, column + 1);
+                new Tile("left", row, column);
+                new Tile("right", row, column + 1);
             }
         }
     });
-}
-function addInitial() {
-    var center = Math.floor((cellCount - 1) / 2);
-    createTile("new", center, center);
 }
 function autoResize() {
     var offset = Math.floor(cellCount / 2);
     setCellCount(cellCount * 2);
-    document.querySelectorAll(".tile").forEach(function (tile) {
-        if (tile instanceof HTMLDivElement) {
-            var row = +tile.style.getPropertyValue("--row");
-            var column = +tile.style.getPropertyValue("--column");
-            row += offset;
-            column += offset;
-            tile.style.setProperty("--row", row.toString());
-            tile.style.setProperty("--column", column.toString());
-        }
-    });
+    Tile.all.forEach(function (tile) { return tile.addOffset(offset); });
 }
 function onReset() {
     clearAll();
@@ -221,11 +224,8 @@ function popUndoItem() {
 }
 function onForward() {
     pushUndoItem();
-    if (needResizeSoon) {
+    if (generation * 2 >= cellCount) {
         autoResize();
-    }
-    else if (mainDiv.childElementCount == 0) {
-        addInitial();
     }
     else if (document.querySelector(".new")) {
         randomlyFill();
@@ -236,21 +236,13 @@ function onForward() {
 }
 function saveState() {
     var savedCellCount = cellCount;
-    var tiles = [];
-    document.querySelectorAll(".tile").forEach(function (element) {
-        var _a;
-        if (!(element instanceof HTMLDivElement)) {
-            throw new Error("wtf");
-        }
-        var direction = ((_a = element.dataset.direction) !== null && _a !== void 0 ? _a : "new");
-        var row = +element.style.getPropertyValue("--row");
-        var column = +element.style.getPropertyValue("--column");
-        tiles.push({ direction: direction, row: row, column: column });
-    });
+    var savedGeneration = generation;
+    var tiles = Array.from(Tile.all).map(function (tile) { return ({ direction: tile.direction, row: tile.getRow(), column: tile.getColumn() }); });
     return function () {
         clearAll();
         setCellCount(savedCellCount);
-        tiles.forEach(function (tile) { return createTile(tile.direction, tile.row, tile.column); });
+        setGeneration(savedGeneration);
+        tiles.forEach(function (tile) { return new Tile(tile.direction, tile.row, tile.column); });
     };
 }
 function onUndo() {
