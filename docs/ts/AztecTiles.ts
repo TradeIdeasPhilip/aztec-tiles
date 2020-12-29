@@ -110,7 +110,21 @@ function clearAll() {
     div.style.setProperty("--dleft", info.dLeft.toString());
     info.div = div;
     mainDiv.appendChild(div);
+    /*
+    const invisible = document.createElement("div");
+    invisible.innerText = info.direction;
+    invisible.className = "invisible";
+    div.appendChild(invisible);
+    */
   });
+}
+
+function disableTransitions() {
+  mainDiv.classList.add("disable-transitions");
+}
+
+function enableTransitions() {
+  mainDiv.classList.remove("disable-transitions");
 }
 
 /** The type of a tile. */
@@ -351,10 +365,25 @@ function popUndoItem() {
 function onForward() {
   pushUndoItem();
   if (generation * 2 >= cellCount) {
+    // Leave the animations in place.
+    // I didn't plan for this case, but it looks mildly amusing, so I'm keeping it.
     autoResize();
   } else if (document.querySelector(".new")) {
+    // If there was an animation in progress, end it.
+    //   Make everything jump to it's final position.
+    // Everything worked before I disabled the transitions, but it was ugly.
+    // It was especially confusing in the early stages:
+    //   Sometimes a panel was still moving when you added new stuff.
+    //   But the panel was empty before.
+    //   So it wasn't obvious that it was still moving.
+    //   It wasn't obvious what was going on.
+    disableTransitions();
+    // At this point we replace all "new" tiles with pairs of smaller tiles.
     randomlyFill();
   } else {
+    // Make the board grow. 
+    // Animate the transitions so you can see exactly where each tile moves to.
+    enableTransitions();
     moveTilesOnce();
   }
 }

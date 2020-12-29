@@ -52,6 +52,12 @@ function clearAll() {
         mainDiv.appendChild(div);
     });
 }
+function disableTransitions() {
+    mainDiv.classList.add("disable-transitions");
+}
+function enableTransitions() {
+    mainDiv.classList.remove("disable-transitions");
+}
 var Tile = (function () {
     function Tile(panelInfo, row, column) {
         this.panelInfo = panelInfo;
@@ -232,9 +238,11 @@ function onForward() {
         autoResize();
     }
     else if (document.querySelector(".new")) {
+        disableTransitions();
         randomlyFill();
     }
     else {
+        enableTransitions();
         moveTilesOnce();
     }
 }
