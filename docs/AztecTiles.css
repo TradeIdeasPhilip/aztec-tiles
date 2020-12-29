@@ -18,6 +18,7 @@ body {
 }
 #menu > button {
   margin: 0 0 0.5rem 0;
+  font-family: 'Noto Sans JP', sans-serif;
 }
 @media (pointer: coarse) { 
   #menu > button {
