@@ -88,6 +88,14 @@ var Tile = (function () {
         Tile.all.delete(this);
         this.div.remove();
     };
+    Tile.prototype.fadeOut = function () {
+        var _this = this;
+        Tile.all.delete(this);
+        this.div.classList.add("fade-out");
+        setTimeout(function () {
+            _this.div.remove();
+        }, 2000);
+    };
     Tile.prototype.getRow = function () { return this.row; };
     Tile.prototype.getColumn = function () { return this.column; };
     Tile.makeKey = function (row, column) {
@@ -126,8 +134,8 @@ function moveTilesOnce() {
         var orientation = tile.panelInfo.orientation;
         var other = crossingPositions[orientation].get(key);
         if (other) {
-            tile.remove();
-            other.remove();
+            tile.fadeOut();
+            other.fadeOut();
             return true;
         }
         crossingPositions[orientation].set(key, tile);
@@ -235,6 +243,7 @@ function popUndoItem() {
 function onForward() {
     pushUndoItem();
     if (generation * 2 >= cellCount) {
+        enableTransitions();
         autoResize();
     }
     else if (document.querySelector(".new")) {

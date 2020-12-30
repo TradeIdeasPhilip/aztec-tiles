@@ -165,6 +165,15 @@ class Tile {
     Tile.all.delete(this);
     this.div.remove();
   }
+  fadeOut() {
+    // Immediately hide it from the JavaScript.
+    Tile.all.delete(this);
+    // Slowly remove it from the screen.
+    this.div.classList.add("fade-out");
+    setTimeout(() => {
+      this.div.remove();
+    }, 2000);
+  }
   getRow() { return this. row; }
   getColumn() { return this.column; }
   static readonly all = new Set< Tile >();
@@ -212,8 +221,8 @@ function moveTilesOnce() {
     const orientation =  tile.panelInfo.orientation;
     const other = crossingPositions[orientation].get(key);
     if (other) {
-      tile.remove();
-      other.remove();
+      tile.fadeOut();
+      other.fadeOut();
       return true;
     }
     crossingPositions[orientation].set(key, tile);
@@ -365,8 +374,9 @@ function popUndoItem() {
 function onForward() {
   pushUndoItem();
   if (generation * 2 >= cellCount) {
-    // Leave the animations in place.
+    // Enable the animations.  (Or leave the animations in place.)
     // I didn't plan for this case, but it looks mildly amusing, so I'm keeping it.
+    enableTransitions();
     autoResize();
   } else if (document.querySelector(".new")) {
     // If there was an animation in progress, end it.

@@ -88,6 +88,10 @@ body {
   from { opacity: 0;}
   to {opacity: 1;}
 }
+.fade-out {
+  opacity: 0;
+  transition: opacity 2s cubic-bezier(0.065, 0.605, 0.895, 0.240);
+}
 .invisible {
   color: transparent;
   position: absolute;
